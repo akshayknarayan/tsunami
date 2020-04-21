@@ -29,6 +29,15 @@ pub trait MachineSetup {
     fn region(&self) -> Self::Region;
 }
 
+impl<R: Eq + std::hash::Hash + Clone + ToString> MachineSetup
+    for Box<dyn MachineSetup<Region = R>>
+{
+    type Region = String;
+    fn region(&self) -> Self::Region {
+        self.as_ref().region().to_string()
+    }
+}
+
 /// Implement this trait to implement a new cloud provider for Tsunami.
 /// Tsunami will call `launch` once per unique region, as defined by `MachineSetup`.
 pub trait Launcher {

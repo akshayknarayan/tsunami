@@ -318,6 +318,40 @@ impl<M: MachineSetup + Clone> TsunamiBuilder<M> {
     }
 }
 
+trait Foo<R: Eq + std::hash::Hash + Clone + ToString>: MachineSetup<Region = R> + Clone {}
+
+impl<R: Eq + std::hash::Hash + Clone + ToString> TsunamiBuilder<Box<dyn Foo<R>>> {
+    pub fn spawn_generic<L1, M1, L2, M2>(
+        &self,
+        launcher1: &mut L1,
+        launcher2: &mut L2,
+    ) -> Result<(), Error>
+    where
+        L1: Launcher<MachineDescriptor = M1>,
+        L2: Launcher<MachineDescriptor = M2>,
+        M1: MachineSetup + Clone,
+        M2: MachineSetup + Clone,
+    {
+        let descriptors: (HashMap<String, M1>, HashMap<String, M2>) = self
+            .descriptors
+            .clone()
+            .into_iter()
+            .fold((HashMap::new(), HashMap::new()), |mut acc, (name, m)| {
+                let a = m;
+                if let Ok(m1) = a.downcast::<M1>() {
+                    acc.0.insert(name.clone(), m1);
+                } else if let Ok(m2) = a.downcast::<M2>() {
+                    acc.1.insert(name.clone(), m2);
+                }
+                return acc;
+            });
+        let max_wait = self.max_wait;
+        let log = self.log.clone();
+
+        unimplemented!()
+    }
+}
+
 #[cfg(test)]
 mod test {
     pub(crate) fn test_logger() -> slog::Logger {
