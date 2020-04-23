@@ -218,18 +218,20 @@ impl Setup {
     ///         Ok(())
     ///     })});
     /// ```
-    pub fn setup(
+    pub fn setup<F, R>(
         mut self,
-        setup: impl for<'r> Fn(
+        setup: F, 
+    ) -> Self
+    where F: (for<'r> Fn(
                 &'r mut ssh::Session,
                 &'r slog::Logger,
-            )
-                -> Pin<Box<dyn Future<Output = Result<(), Error>> + Send + 'r>>
+            ) -> R + 'r)
             + Send 
             + Sync
             + 'static,
-    ) -> Self {
-        self.setup_fn = Some(Arc::new(setup));
+        F: Future<Output=Result<(), Error>> + Send
+    {
+        self.setup_fn = Some(Arc::new(|ssh, log| Box::pin(setup(ssh, log))));
         self
     }
 
