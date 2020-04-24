@@ -231,7 +231,7 @@ impl Setup {
     /// ```
     pub fn setup(
         mut self,
-        setup: impl for<'r> super::sealed::AsyncSetup<'r> + Send + Sync + 'static,
+        setup: impl for<'r> super::AsyncSetup<'r> + Send + Sync + 'static,
     ) -> Self {
         self.setup_fn = Some(Arc::new(move |ssh, log| {
             let fut = setup.call(ssh, log);

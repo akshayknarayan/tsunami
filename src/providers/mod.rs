@@ -1,5 +1,6 @@
 //! Implements backend functionality to spawn machines.
 
+use crate::Session;
 use failure::Error;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -123,26 +124,22 @@ pub trait Launcher {
     }
 }
 
-mod sealed {
-    use crate::ssh::Session;
-    use failure::Error;
-    use std::future::Future;
+/// An async setup function.
+pub trait AsyncSetup<'r> {
+    /// The future representing the setup work.
+    type Future: Future<Output = Result<(), Error>> + Send + 'r;
+    /// Given an ssh connection and a logger, return a Self::Future that will do setup work.
+    fn call(&self, ssh: &'r mut Session, log: &'r slog::Logger) -> Self::Future;
+}
 
-    /// An async setup function.
-    pub trait AsyncSetup<'r> {
-        type Future: Future<Output = Result<(), Error>> + Send + 'r;
-        fn call(&self, ssh: &'r mut Session, log: &'r slog::Logger) -> Self::Future;
-    }
-
-    impl<'r, T, F> AsyncSetup<'r> for T
-    where
-        T: Fn(&'r mut Session, &'r slog::Logger) -> F,
-        F: Future<Output = Result<(), Error>> + Send + 'r,
-    {
-        type Future = F;
-        fn call(&self, ssh: &'r mut Session, log: &'r slog::Logger) -> Self::Future {
-            self(ssh, log)
-        }
+impl<'r, T, F> AsyncSetup<'r> for T
+where
+    T: Fn(&'r mut Session, &'r slog::Logger) -> F + ?Sized,
+    F: Future<Output = Result<(), Error>> + Send + 'r,
+{
+    type Future = F;
+    fn call(&self, ssh: &'r mut Session, log: &'r slog::Logger) -> Self::Future {
+        self(ssh, log)
     }
 }
 
