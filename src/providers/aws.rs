@@ -223,24 +223,20 @@ impl Setup {
     /// use tsunami::providers::aws::Setup;
     ///
     /// let m = Setup::default()
-    ///     .setup(|ssh, log| { Box::pin(async move {
+    ///     .setup(|ssh, log| async move {
     ///         slog::info!(log, "running setup!");
     ///         ssh.command("sudo").arg("apt").arg("update").status().await?;
     ///         Ok(())
-    ///     })});
+    ///     });
     /// ```
     pub fn setup(
         mut self,
-        setup: impl for<'r> Fn(
-                &'r mut ssh::Session,
-                &'r slog::Logger,
-            )
-                -> Pin<Box<dyn Future<Output = Result<(), Error>> + Send + 'r>>
-            + Send 
-            + Sync
-            + 'static,
+        setup: impl for<'r> super::sealed::AsyncSetup<'r> + Send + Sync + 'static,
     ) -> Self {
-        self.setup_fn = Some(Arc::new(setup));
+        self.setup_fn = Some(Arc::new(move |ssh, log| {
+            let fut = setup.call(ssh, log);
+            Box::pin(async move { fut.await })
+        }));
         self
     }
 
@@ -1191,7 +1187,7 @@ mod test {
             l.spawn(
                 vec![(
                     String::from("my machine"),
-                    super::Setup::default().setup(|ssh, _| {
+                    super::Setup::default().setup(|ssh: &mut crate::Session, _| {
                         Box::pin(async move {
                             if ssh.command("whoami").status().await?.success() {
                                 Ok(())

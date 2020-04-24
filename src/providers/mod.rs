@@ -123,6 +123,29 @@ pub trait Launcher {
     }
 }
 
+mod sealed {
+    use crate::ssh::Session;
+    use failure::Error;
+    use std::future::Future;
+
+    /// An async setup function.
+    pub trait AsyncSetup<'r> {
+        type Future: Future<Output = Result<(), Error>> + Send + 'r;
+        fn call(&self, ssh: &'r mut Session, log: &'r slog::Logger) -> Self::Future;
+    }
+
+    impl<'r, T, F> AsyncSetup<'r> for T
+    where
+        T: Fn(&'r mut Session, &'r slog::Logger) -> F,
+        F: Future<Output = Result<(), Error>> + Send + 'r,
+    {
+        type Future = F;
+        fn call(&self, ssh: &'r mut Session, log: &'r slog::Logger) -> Self::Future {
+            self(ssh, log)
+        }
+    }
+}
+
 #[cfg(any(feature = "aws", feature = "azure"))]
 macro_rules! collect {
     ($x: expr) => {{
